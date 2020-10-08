@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"strconv"
+
 	oidc "github.com/coreos/go-oidc"
 	"golang.org/x/oauth2"
 
@@ -206,7 +208,7 @@ func (p *OIDCProvider) createSessionStateInternal(ctx context.Context, idToken *
 	newSession.Email = claims.UserID // TODO Rename SessionState.Email to .UserID in the near future
 
 	newSession.User = claims.Subject
-	newSession.Groups = claims.Groups
+	newSession.Groups = p.getGroupsSliceFromClaim(claims)
 	newSession.PreferredUsername = claims.PreferredUsername
 
 	verifyEmail := (p.UserIDClaim == emailClaim) && !p.AllowUnverifiedEmail
@@ -282,8 +284,60 @@ func (p *OIDCProvider) findClaimsFromIDToken(ctx context.Context, idToken *oidc.
 func (p *OIDCProvider) extractGroupsFromRawClaims(rawClaims map[string]interface{}) []string {
 	groups := []string{}
 
-	rawGroups, ok := rawClaims[p.GroupsClaim].([]interface{})
-	if rawGroups != nil && ok {
+	switch rawGroups := rawClaims[p.GroupsClaim].(type) {
+	case []string:
+		groups = append(groups, rawGroups...)
+	case string:
+		if strings.HasPrefix(rawGroups, "|") {
+			split := strings.Split(rawGroups, "|")
+			for _, str := range split {
+				if str == "" {
+					continue
+				}
+				groups = append(groups, str)
+			}
+
+			return groups
+		}
+
+		groups = append(groups, rawGroups)
+	case int:
+		groups = append(groups, strconv.Itoa(rawGroups))
+	case []interface{}:
+		for _, rawGroup := range rawGroups {
+			group, ok := rawGroup.(string)
+			if ok {
+				groups = append(groups, group)
+			}
+		}
+	}
+
+	return groups
+}
+
+func (p *OIDCProvider) getGroupsSliceFromClaim(claim *OIDCClaims) []string {
+	groups := []string{}
+
+	switch rawGroups := claim.Groups.(type) {
+	case []string:
+		groups = append(groups, rawGroups...)
+	case string:
+		if strings.HasPrefix(rawGroups, "|") {
+			split := strings.Split(rawGroups, "|")
+			for _, str := range split {
+				if str == "" {
+					continue
+				}
+				groups = append(groups, str)
+			}
+
+			return groups
+		}
+
+		groups = append(groups, rawGroups)
+	case int:
+		groups = append(groups, strconv.Itoa(rawGroups))
+	case []interface{}:
 		for _, rawGroup := range rawGroups {
 			group, ok := rawGroup.(string)
 			if ok {
@@ -301,5 +355,5 @@ type OIDCClaims struct {
 	Subject           string `json:"sub"`
 	Verified          *bool  `json:"email_verified"`
 	PreferredUsername string `json:"preferred_username"`
-	Groups            []string
+	Groups            interface{}
 }

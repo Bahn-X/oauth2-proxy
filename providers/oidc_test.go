@@ -373,3 +373,29 @@ func TestOIDCProvider_findVerifiedIdToken(t *testing.T) {
 	assert.Equal(t, nil, err)
 	assert.Equal(t, true, verifiedIDToken == nil)
 }
+
+func TestExtractRawGroupsFromClaim(t *testing.T) {
+	server, provider := newTestSetup([]byte(""))
+	defer server.Close()
+
+	provider.GroupsClaim = "groups"
+
+	rawClaims := map[string]interface{}{
+		"groups": "|group-a|group-b|",
+	}
+	expectedGroups := []string{"group-a", "group-b"}
+	groups := provider.extractGroupsFromRawClaims(rawClaims)
+	assert.Equal(t, expectedGroups, groups)
+}
+
+func TestgetGroupsSliceFromClaim(t *testing.T) {
+	server, provider := newTestSetup([]byte(""))
+	defer server.Close()
+
+	claim := &OIDCClaims{
+		Groups: "|group-a|group-b|",
+	}
+	expectedGroups := []string{"group-a", "group-b"}
+	groups := provider.getGroupsSliceFromClaim(claim)
+	assert.Equal(t, expectedGroups, groups)
+}
