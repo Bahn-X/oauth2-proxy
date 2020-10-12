@@ -24,8 +24,3 @@ workflows:
     jobs:
       - build:
           context: prod
-          filters:
-            branches:
-              only:
-                - master
-                - hotfix/groupclaims
