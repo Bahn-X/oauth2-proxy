@@ -1,0 +1,26 @@
+version: 2.1
+
+orbs:
+  aws-ecr: bahnx/aws-ecr@1.0.1
+
+jobs:
+  build:
+    docker:
+      - image: $DOCKER_REGISTRY/$STAGE/cd-base:latest
+        aws_auth:
+          aws_access_key_id: $AWS_ACCESS_KEY_ID
+          aws_secret_access_key: $AWS_SECRET_ACCESS_KEY
+    steps:
+      - setup_remote_docker:
+          docker_layer_caching: true
+      - checkout
+      - aws-ecr/build-push-docker:
+          image: oauth2-proxy
+          image-tag: "$CIRCLE_SHA1"
+
+workflows:
+  version: 2
+  prod:
+    jobs:
+      - build:
+          context: prod
